@@ -1,5 +1,7 @@
 'use client';
 import { useState } from 'react';
+import * as pdfjsLib from 'pdfjs-dist';
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
 
 type Result = {
   score: number;
@@ -12,6 +14,29 @@ type Result = {
 };
 
 export default function Home() {
+    async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.type !== 'application/pdf') {
+      alert('目前只支持 PDF 文件，图片请使用微信/QQ截图提取文字后再粘贴。');
+      return;
+    }
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      let fullText = '';
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items.map((item: any) => item.str).join(' ');
+        fullText += pageText + '\n';
+      }
+      setResume(fullText);
+      alert('简历读取成功！请检查内容是否完整。');
+    } catch (err) {
+      alert('PDF 解析失败，请尝试复制文字粘贴。');
+    }
+  }
   const [resume, setResume] = useState('');
   const [jd, setJd] = useState('');
   const [result, setResult] = useState<Result | null>(null);
@@ -53,6 +78,12 @@ export default function Home() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+               <div className="mb-2">
+          <label className="cursor-pointer bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded text-sm font-medium inline-block">
+            📄 上传 PDF 简历（自动提取文字）
+            <input type="file" accept=".pdf" className="hidden" onChange={handleFileUpload} />
+          </label>
+        </div>
         <textarea
           className="w-full border p-3 rounded h-48 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           placeholder="在这里粘贴你的简历..."
